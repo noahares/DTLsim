@@ -3,14 +3,14 @@ const newick_parser = @import("newick_parser.zig");
 const simulator = @import("simulate_family.zig");
 
 pub fn main() !void {
-    const input = "(((a, b)x:1.0, (c:3, d)), e);";
+    const input = "(((a, b), (c, d)), e);";
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     var alloc = arena.allocator();
     var tree = try newick_parser.parseNewickString(&alloc, input);
     defer tree.deinit();
     tree.print();
-    var sim = try simulator.FamilySimulator.init(&tree, &alloc);
+    const sim = try simulator.FamilySimulator.init(&tree, &alloc);
     // defer sim.deinit();
     var gene_tree = try sim.simulate_family();
     defer gene_tree.deinit();

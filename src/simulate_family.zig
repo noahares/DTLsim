@@ -15,6 +15,24 @@ pub const TransferConstraint = union(enum) {
     none,
 };
 
+pub const EventCounts = struct {
+    duplication: usize = 0,
+    transfer: usize = 0,
+    loss: usize = 0,
+    speciation: usize = 0,
+
+    pub fn print(self: *EventCounts) void {
+        std.debug.print("D: {}, T: {}, L: {}, S: {}\n", self.*);
+    }
+
+    pub fn reset(self: *EventCounts) void {
+        self.duplication = 0;
+        self.transfer = 0;
+        self.loss = 0;
+        self.speciation = 0;
+    }
+};
+
 pub const FamilySimulator = struct {
     species_tree: *Tree,
     origination_rates: []f32,
@@ -25,8 +43,9 @@ pub const FamilySimulator = struct {
     transfer_constraint: TransferConstraint = TransferConstraint.parent,
     allocator: *const std.mem.Allocator,
     rand: std.Random,
+    event_counts: EventCounts,
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator) !FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator) !*FamilySimulator {
         const O_r = 1.0;
         var D: f32 = 0.1;
         var T: f32 = 0.1;
@@ -54,16 +73,10 @@ pub const FamilySimulator = struct {
         origination_rates[0] = O_r;
         var prng = std.rand.DefaultPrng.init(2);
         const rand = prng.random();
-        return FamilySimulator{
-            .species_tree = species_tree,
-            .origination_rates = origination_rates,
-            .duplication_rates = duplication_rates,
-            .transfer_rates_from = transfer_rates_from,
-            .transfer_rates_to = transfer_rates_to,
-            .loss_rates = loss_rates,
-            .allocator = allocator,
-            .rand = rand,
-        };
+        const event_counts = EventCounts{};
+        const simulator = try allocator.create(FamilySimulator);
+        simulator.* = FamilySimulator{ .species_tree = species_tree, .origination_rates = origination_rates, .duplication_rates = duplication_rates, .transfer_rates_from = transfer_rates_from, .transfer_rates_to = transfer_rates_to, .loss_rates = loss_rates, .allocator = allocator, .rand = rand, .event_counts = event_counts };
+        return simulator;
     }
 
     // pub fn deinit(self: *FamilySimulator) void {
@@ -74,11 +87,13 @@ pub const FamilySimulator = struct {
     // }
 
     pub fn simulate_family(self: *FamilySimulator) !Tree {
+        self.event_counts.reset();
         var gene_tree = Tree.init(self.allocator);
         const gene_origination = self.species_tree.post_order_nodes.items[self.rand.weightedIndex(f32, self.origination_rates)];
         const gene_root = try gene_tree.newNode(null, null, null);
         gene_tree.setRoot(gene_root);
         try self.process_species_node(&gene_tree, gene_root, gene_origination);
+        self.event_counts.print();
         return gene_tree;
     }
 
@@ -102,6 +117,7 @@ pub const FamilySimulator = struct {
         switch (event) {
             .duplication => {
                 std.debug.print("Duplication above node {}\n", .{node_id});
+                self.event_counts.duplication += 1;
                 parent_gene_node.name = "D";
                 const first_copy = try gene_tree.newNode(null, null, parent_gene_node);
                 const second_copy = try gene_tree.newNode(null, null, parent_gene_node);
@@ -113,6 +129,7 @@ pub const FamilySimulator = struct {
             .transfer => {
                 const recipient = try self.sample_transfer_node(species_node);
                 std.debug.print("Transfer above node {} to node {}\n", .{ node_id, recipient.id });
+                self.event_counts.transfer += 1;
                 const buf = try self.allocator.alloc(u8, 100);
                 parent_gene_node.name = try std.fmt.bufPrint(buf, "T@{}->@{}", .{ node_id, recipient.id });
                 const donor_copy = try gene_tree.newNode(null, null, parent_gene_node);
@@ -124,11 +141,13 @@ pub const FamilySimulator = struct {
             },
             .loss => {
                 std.debug.print("Loss above node {}\n", .{node_id});
+                self.event_counts.loss += 1;
                 parent_gene_node.name = "L";
                 gene_tree.restore_bifurcation(parent_gene_node);
             },
             .speciation => {
                 if (species_node.left_child != null) {
+                    self.event_counts.speciation += 1;
                     parent_gene_node.name = "S";
                     std.debug.print("Speciation at node {}\n", .{node_id});
                     const left_child = try gene_tree.newNode(null, null, parent_gene_node);

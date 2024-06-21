@@ -41,10 +41,8 @@ pub const Tree = struct {
 
     pub fn restore_bifurcation(self: *Tree, node: *TreeNode) void {
         if (node.parent) |parent| {
-            std.debug.print("parent: {}\n", .{parent.id});
             if (parent.left_child.?.id == node.id) {
                 if (parent.parent) |grandparent| {
-                    std.debug.print("left and grandparent: {}\n", .{grandparent.id});
                     parent.right_child.?.parent = grandparent;
                     if (grandparent.left_child.?.id == parent.id) {
                         grandparent.left_child = parent.right_child;
@@ -53,11 +51,9 @@ pub const Tree = struct {
                     }
                 } else {
                     self.root = parent.right_child;
-                    std.debug.print("No grandparent!\n", .{});
                 }
             } else {
                 if (parent.parent) |grandparent| {
-                    std.debug.print("right and grandparent: {}\n", .{grandparent.id});
                     parent.left_child.?.parent = grandparent;
                     if (grandparent.left_child.?.id == parent.id) {
                         grandparent.left_child = parent.left_child;
@@ -66,12 +62,10 @@ pub const Tree = struct {
                     }
                 } else {
                     self.root = parent.left_child;
-                    std.debug.print("No grandparent!\n", .{});
                 }
             }
         } else {
             self.root = null;
-            std.debug.print("No parent!\n", .{});
         }
     }
 };
