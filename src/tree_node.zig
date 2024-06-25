@@ -43,10 +43,19 @@ pub const TreeNode = struct {
         }
         if (self.name) |name| {
             std.debug.print("{s}", .{name});
+        } else if (self.left_child) |_| {
+            std.debug.print(".{}", .{self.id});
         }
-        // std.debug.print("_{}", .{self.id});
         if (self.branch_length) |b| {
             std.debug.print(":{d:.2}", .{b});
+        }
+    }
+
+    pub fn name_or_id(self: *TreeNode, buf: []u8) ![]u8 {
+        if (self.name) |name| {
+            return try std.fmt.bufPrint(buf, "{s}", .{name});
+        } else {
+            return try std.fmt.bufPrint(buf, "{}", .{self.id});
         }
     }
 };

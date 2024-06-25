@@ -4,6 +4,7 @@ const simulator = @import("simulate_family.zig");
 
 pub fn main() !void {
     const input = "(((a, b), (c, d)), e);";
+    // const input = "(((5,4),(1,(2,3))),(((((17,(10,14)),((9,(7,28)),(23,27))),18),(((20,(24,19)),((16,8),13)),((26,(29,25)),(15,11)))),(30,(12,((6,21),22)))));";
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     var alloc = arena.allocator();
@@ -11,9 +12,9 @@ pub fn main() !void {
     defer tree.deinit();
     tree.print();
     const sim = try simulator.FamilySimulator.init(&tree, &alloc, 42);
-    try sim.addHighway(3, 5, 0.2);
-    try sim.addHighway(3, 8, 0.1);
-    try sim.addHighway(4, 7, 0.2);
+    try sim.addHighway(3, 5, 10.0, 100.0);
+    // try sim.addHighway(3, 8, 5.0, 50.0);
+    // try sim.addHighway(4, 7, 1.5, 10.0);
     // std.debug.print("{?}", .{sim.highways.get(3).?});
     // defer sim.deinit();
     for (0..10) |_| {
