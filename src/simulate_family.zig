@@ -33,6 +33,12 @@ pub const EventCounts = struct {
     }
 };
 
+pub const Highway = struct {
+    recipient: usize,
+    p: f32,
+    taken: bool,
+};
+
 pub const FamilySimulator = struct {
     species_tree: *Tree,
     origination_rates: []f32,
@@ -42,10 +48,12 @@ pub const FamilySimulator = struct {
     loss_rates: []f32,
     transfer_constraint: TransferConstraint = TransferConstraint.parent,
     allocator: *const std.mem.Allocator,
-    rand: std.Random,
+    rand: std.rand.Xoshiro256,
+    seed: u64,
     event_counts: EventCounts,
+    highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator) !*FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, seed: u64) !*FamilySimulator {
         const O_r = 1.0;
         var D: f32 = 0.1;
         var T: f32 = 0.1;
@@ -71,11 +79,11 @@ pub const FamilySimulator = struct {
             l.* = L;
         }
         origination_rates[0] = O_r;
-        var prng = std.rand.DefaultPrng.init(2);
-        const rand = prng.random();
+        const rand = std.rand.DefaultPrng.init(seed);
         const event_counts = EventCounts{};
+        const highways = std.AutoHashMap(usize, std.ArrayList(*Highway)).init(allocator.*);
         const simulator = try allocator.create(FamilySimulator);
-        simulator.* = FamilySimulator{ .species_tree = species_tree, .origination_rates = origination_rates, .duplication_rates = duplication_rates, .transfer_rates_from = transfer_rates_from, .transfer_rates_to = transfer_rates_to, .loss_rates = loss_rates, .allocator = allocator, .rand = rand, .event_counts = event_counts };
+        simulator.* = FamilySimulator{ .species_tree = species_tree, .origination_rates = origination_rates, .duplication_rates = duplication_rates, .transfer_rates_from = transfer_rates_from, .transfer_rates_to = transfer_rates_to, .loss_rates = loss_rates, .allocator = allocator, .rand = rand, .seed = seed, .event_counts = event_counts, .highways = highways };
         return simulator;
     }
 
@@ -88,8 +96,10 @@ pub const FamilySimulator = struct {
 
     pub fn simulate_family(self: *FamilySimulator) !Tree {
         self.event_counts.reset();
+        self.seed += 1;
+        self.rand.seed(self.seed);
         var gene_tree = Tree.init(self.allocator);
-        const gene_origination = self.species_tree.post_order_nodes.items[self.rand.weightedIndex(f32, self.origination_rates)];
+        const gene_origination = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.origination_rates)];
         const gene_root = try gene_tree.newNode(null, null, null);
         gene_tree.setRoot(gene_root);
         try self.process_species_node(&gene_tree, gene_root, gene_origination);
@@ -99,11 +109,31 @@ pub const FamilySimulator = struct {
 
     pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode) !void {
         const node_id = species_node.id;
+        if (self.highways.get(node_id)) |highways| {
+            for (highways.items) |highway| {
+                if (!highway.taken and self.rand.random().float(f32) <= highway.p) {
+                    const recipient = self.species_tree.post_order_nodes.items[highway.recipient];
+                    // std.debug.print("Highway transfer above node {} to node {}\n", .{ node_id, recipient.id });
+                    self.event_counts.transfer += 1;
+                    const buf = try self.allocator.alloc(u8, 100);
+                    parent_gene_node.name = try std.fmt.bufPrint(buf, "T@{}->@{}", .{ node_id, recipient.id });
+                    const donor_copy = try gene_tree.newNode(null, null, parent_gene_node);
+                    const recipient_copy = try gene_tree.newNode(null, null, parent_gene_node);
+                    parent_gene_node.left_child = donor_copy;
+                    parent_gene_node.right_child = recipient_copy;
+                    highway.taken = true;
+                    try self.process_species_node(gene_tree, donor_copy, species_node);
+                    try self.process_species_node(gene_tree, recipient_copy, recipient);
+                    return;
+                }
+            }
+        }
         const d = self.duplication_rates[node_id];
         const dt = d + self.transfer_rates_from[node_id];
         const dtl = dt + self.loss_rates[node_id];
         const event = blk: {
-            const p = self.rand.float(f32);
+            const p = self.rand.random().float(f32);
+
             if (p <= d) {
                 break :blk DTL_event.duplication;
             } else if (p <= dt) {
@@ -116,7 +146,7 @@ pub const FamilySimulator = struct {
         };
         switch (event) {
             .duplication => {
-                std.debug.print("Duplication above node {}\n", .{node_id});
+                // std.debug.print("Duplication above node {}\n", .{node_id});
                 self.event_counts.duplication += 1;
                 parent_gene_node.name = "D";
                 const first_copy = try gene_tree.newNode(null, null, parent_gene_node);
@@ -128,7 +158,7 @@ pub const FamilySimulator = struct {
             },
             .transfer => {
                 const recipient = try self.sample_transfer_node(species_node);
-                std.debug.print("Transfer above node {} to node {}\n", .{ node_id, recipient.id });
+                // std.debug.print("Transfer above node {} to node {}\n", .{ node_id, recipient.id });
                 self.event_counts.transfer += 1;
                 const buf = try self.allocator.alloc(u8, 100);
                 parent_gene_node.name = try std.fmt.bufPrint(buf, "T@{}->@{}", .{ node_id, recipient.id });
@@ -140,7 +170,7 @@ pub const FamilySimulator = struct {
                 try self.process_species_node(gene_tree, recipient_copy, recipient);
             },
             .loss => {
-                std.debug.print("Loss above node {}\n", .{node_id});
+                // std.debug.print("Loss above node {}\n", .{node_id});
                 self.event_counts.loss += 1;
                 parent_gene_node.name = "L";
                 gene_tree.restore_bifurcation(parent_gene_node);
@@ -149,7 +179,7 @@ pub const FamilySimulator = struct {
                 if (species_node.left_child != null) {
                     self.event_counts.speciation += 1;
                     parent_gene_node.name = "S";
-                    std.debug.print("Speciation at node {}\n", .{node_id});
+                    // std.debug.print("Speciation at node {}\n", .{node_id});
                     const left_child = try gene_tree.newNode(null, null, parent_gene_node);
                     const right_child = try gene_tree.newNode(null, null, parent_gene_node);
                     parent_gene_node.left_child = left_child;
@@ -157,7 +187,7 @@ pub const FamilySimulator = struct {
                     try self.process_species_node(gene_tree, left_child, species_node.left_child.?);
                     try self.process_species_node(gene_tree, right_child, species_node.right_child.?);
                 } else {
-                    std.debug.print("Leaf at node {}\n", .{node_id});
+                    // std.debug.print("Leaf at node {}\n", .{node_id});
                     parent_gene_node.name = species_node.name;
                 }
             },
@@ -176,7 +206,7 @@ pub const FamilySimulator = struct {
                     current_node = parent;
                 }
                 propose_target: while (true) {
-                    const transfer_candidate = self.species_tree.post_order_nodes.items[self.rand.weightedIndex(f32, self.transfer_rates_to)];
+                    const transfer_candidate = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.transfer_rates_to)];
                     const candidate_id = transfer_candidate.id;
                     for (forbidden_transfers.items) |forbidden_id| {
                         if (candidate_id > forbidden_id) {
@@ -193,8 +223,19 @@ pub const FamilySimulator = struct {
                 @panic("Dated transfer constraint not yet supported!\n");
             },
             .none => {
-                return self.species_tree.post_order_nodes.items[self.rand.weightedIndex(f32, self.transfer_rates_to)];
+                return self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.transfer_rates_to)];
             },
         }
+    }
+
+    pub fn addHighway(self: *FamilySimulator, source: usize, target: usize, transfer_probability: f32) !void {
+        const map_entry = try self.highways.getOrPutValue(source, std.ArrayList(*Highway).init(self.allocator.*));
+        const highway = try self.allocator.create(Highway);
+        highway.* = Highway{
+            .recipient = target,
+            .p = transfer_probability,
+            .taken = false,
+        };
+        try map_entry.value_ptr.append(highway);
     }
 };

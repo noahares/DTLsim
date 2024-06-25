@@ -44,7 +44,7 @@ pub const TreeNode = struct {
         if (self.name) |name| {
             std.debug.print("{s}", .{name});
         }
-        std.debug.print("_{}", .{self.id});
+        // std.debug.print("_{}", .{self.id});
         if (self.branch_length) |b| {
             std.debug.print(":{d:.2}", .{b});
         }

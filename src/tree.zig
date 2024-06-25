@@ -36,7 +36,7 @@ pub const Tree = struct {
     pub fn print(self: *Tree) void {
         self.root.?.print();
         std.debug.print(";\n", .{});
-        std.debug.print("Number of nodes: {}\n", .{self.numNodes()});
+        // std.debug.print("Number of nodes: {}\n", .{self.numNodes()});
     }
 
     pub fn restore_bifurcation(self: *Tree, node: *TreeNode) void {

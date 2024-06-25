@@ -10,11 +10,17 @@ pub fn main() !void {
     var tree = try newick_parser.parseNewickString(&alloc, input);
     defer tree.deinit();
     tree.print();
-    const sim = try simulator.FamilySimulator.init(&tree, &alloc);
+    const sim = try simulator.FamilySimulator.init(&tree, &alloc, 42);
+    try sim.addHighway(3, 5, 0.2);
+    try sim.addHighway(3, 8, 0.1);
+    try sim.addHighway(4, 7, 0.2);
+    // std.debug.print("{?}", .{sim.highways.get(3).?});
     // defer sim.deinit();
-    var gene_tree = try sim.simulate_family();
-    defer gene_tree.deinit();
-    gene_tree.print();
+    for (0..10) |_| {
+        var gene_tree = try sim.simulate_family();
+        defer gene_tree.deinit();
+        gene_tree.print();
+    }
 }
 
 test "simple test" {
