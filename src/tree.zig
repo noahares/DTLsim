@@ -58,7 +58,7 @@ pub const Tree = struct {
                     if (grandparent.left_child.?.id == parent.id) {
                         grandparent.left_child = parent.left_child;
                     } else {
-                        grandparent.right_child = parent.right_child;
+                        grandparent.right_child = parent.left_child;
                     }
                 } else {
                     self.root = parent.left_child;
