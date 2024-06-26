@@ -9,7 +9,7 @@ pub const ParserError = error{NoPathProvided};
 pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize, simulator: *FamilySimulator } {
     const params = comptime clap.parseParamsComptime(
         \\--help                                Display this help and exit.
-        \\-i, --species-tree <FILE>              Path to the species tree
+        \\-i, --species-tree <FILE>             Path to the species tree
         \\-s, --seed <u64>                      RNG seed (default: 42)
         \\-n, --num-gene-families <usize>       Number of gene families to generate (default: 100)
         \\-d, --duplication-rate <f32>          Duplication rate (default: 0.1)
@@ -18,9 +18,10 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         \\-o, --root-origination <f32>          Root origination rate (default: 1.0)
         \\-b, --branch-rate-modifier <MOD>...   Individual values for DTL rates on specific species tree branches
         \\                                      (format <type>:<branch_id>:<value> where type is one of {d, t, r, l, o})
-        \\-h, --highway <HIGHWAY>...                Defines a transfer highway between two species tree branches
+        \\-h, --highway <HIGHWAY>...            Defines a transfer highway between two species tree branches
         \\                                      (format <source_id>:<target_id>:<source_multiplier>:<target_multiplier>)
-        \\-c, --transfer-constraint <CONSTR>     Transfer constraint, either parent, dated or none (default: parent)
+        \\-c, --transfer-constraint <CONSTR>    Transfer constraint, either parent, dated or none (default: parent)
+        \\-x, --post-transfer-loss <f32>        Factor for changing the loss rate after receiving a gene via transfer (default: 1.0)
     );
 
     const parsers = comptime .{
@@ -71,6 +72,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         res.args.@"root-origination" orelse 1.0,
         res.args.seed orelse 42,
         res.args.@"transfer-constraint" orelse TransferConstraint.parent,
+        res.args.@"post-transfer-loss" orelse 1.0,
         res.args.@"branch-rate-modifier",
     );
     for (res.args.highway) |highway| {

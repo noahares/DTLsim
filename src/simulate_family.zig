@@ -52,13 +52,14 @@ pub const FamilySimulator = struct {
     loss_rates: []f32,
     num_gene_copies: []usize,
     transfer_constraint: TransferConstraint,
+    post_transfer_loss_factor: f32,
     allocator: *const std.mem.Allocator,
     rand: std.rand.Xoshiro256,
     seed: u64,
     event_counts: EventCounts,
     highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, transfer_constraint: TransferConstraint, branch_modifiers: []const []const u8) !*FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, transfer_constraint: TransferConstraint, post_transfer_loss_factor: f32, branch_modifiers: []const []const u8) !*FamilySimulator {
         const D: f32 = d;
         const T: f32 = t;
         const L: f32 = l;
@@ -72,7 +73,6 @@ pub const FamilySimulator = struct {
         const loss_rates = try allocator.alloc(f32, num_species_nodes);
         const num_gene_copies = try allocator.alloc(usize, num_species_nodes);
 
-        // TODO: for more general case, these need to be initialized for each node!
         const o_b = (1.0 - O_r) / @as(f32, @floatFromInt(num_species_nodes - 1));
         @memset(origination_rates, o_b);
         @memset(duplication_rates, D);
@@ -116,6 +116,7 @@ pub const FamilySimulator = struct {
                     break :blk transfer_constraint;
                 }
             },
+            .post_transfer_loss_factor = post_transfer_loss_factor,
             .allocator = allocator,
             .rand = rand,
             .seed = seed,
@@ -138,16 +139,20 @@ pub const FamilySimulator = struct {
         const gene_origination = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.origination_rates)];
         const gene_root = try gene_tree.newNode(null, null, null);
         gene_tree.setRoot(gene_root);
-        try self.process_species_node(gene_tree, gene_root, gene_origination);
+        try self.process_species_node(gene_tree, gene_root, gene_origination, false);
         self.event_counts.print();
         return gene_tree;
     }
 
-    pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode) !void {
+    pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode, transfer_recipient: bool) !void {
         const node_id = species_node.id;
         var d = self.duplication_rates[node_id];
         var t = self.transfer_rates_from[node_id];
         var l = self.loss_rates[node_id];
+
+        if (transfer_recipient) {
+            l *= self.post_transfer_loss_factor;
+        }
 
         var highway_transfer_weight: f32 = 1.0;
         if (self.highways.get(node_id)) |highways| {
@@ -185,8 +190,8 @@ pub const FamilySimulator = struct {
                 const second_copy = try gene_tree.newNode(null, null, parent_gene_node);
                 parent_gene_node.left_child = first_copy;
                 parent_gene_node.right_child = second_copy;
-                try self.process_species_node(gene_tree, first_copy, species_node);
-                try self.process_species_node(gene_tree, second_copy, species_node);
+                try self.process_species_node(gene_tree, first_copy, species_node, false);
+                try self.process_species_node(gene_tree, second_copy, species_node, false);
             },
             .transfer => {
                 const recipient = try self.sample_transfer_node(species_node);
@@ -200,8 +205,8 @@ pub const FamilySimulator = struct {
                 const recipient_copy = try gene_tree.newNode(null, null, parent_gene_node);
                 parent_gene_node.left_child = donor_copy;
                 parent_gene_node.right_child = recipient_copy;
-                try self.process_species_node(gene_tree, donor_copy, species_node);
-                try self.process_species_node(gene_tree, recipient_copy, recipient);
+                try self.process_species_node(gene_tree, donor_copy, species_node, false);
+                try self.process_species_node(gene_tree, recipient_copy, recipient, true);
             },
             .loss => {
                 // std.debug.print("Loss above node {}\n", .{node_id});
@@ -218,8 +223,8 @@ pub const FamilySimulator = struct {
                     const right_child = try gene_tree.newNode(null, null, parent_gene_node);
                     parent_gene_node.left_child = left_child;
                     parent_gene_node.right_child = right_child;
-                    try self.process_species_node(gene_tree, left_child, species_node.left_child.?);
-                    try self.process_species_node(gene_tree, right_child, species_node.right_child.?);
+                    try self.process_species_node(gene_tree, left_child, species_node.left_child.?, false);
+                    try self.process_species_node(gene_tree, right_child, species_node.right_child.?, false);
                 } else {
                     // std.debug.print("Leaf at node {}\n", .{node_id});
                     const species_name = species_node.name orelse "species";
