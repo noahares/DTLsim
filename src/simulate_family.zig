@@ -9,7 +9,7 @@ pub const DTL_event = union(enum) {
     speciation,
 };
 
-pub const TransferConstraint = union(enum) {
+pub const TransferConstraint = enum {
     parent,
     dated,
     none,
@@ -39,6 +39,10 @@ pub const Highway = struct {
     recipient_muliplier: f32,
 };
 
+pub const SimulatorError = error{
+    TransferConstraintNotSupported,
+};
+
 pub const FamilySimulator = struct {
     species_tree: *Tree,
     origination_rates: []f32,
@@ -47,14 +51,14 @@ pub const FamilySimulator = struct {
     transfer_rates_to: []f32,
     loss_rates: []f32,
     num_gene_copies: []usize,
-    transfer_constraint: TransferConstraint = TransferConstraint.parent,
+    transfer_constraint: TransferConstraint,
     allocator: *const std.mem.Allocator,
     rand: std.rand.Xoshiro256,
     seed: u64,
     event_counts: EventCounts,
     highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, branch_modifiers: []const []const u8) !*FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, transfer_constraint: TransferConstraint, branch_modifiers: []const []const u8) !*FamilySimulator {
         const D: f32 = d;
         const T: f32 = t;
         const L: f32 = l;
@@ -105,6 +109,13 @@ pub const FamilySimulator = struct {
             .transfer_rates_to = transfer_rates_to,
             .loss_rates = loss_rates,
             .num_gene_copies = num_gene_copies,
+            .transfer_constraint = blk: {
+                if (transfer_constraint == .dated) {
+                    return SimulatorError.TransferConstraintNotSupported;
+                } else {
+                    break :blk transfer_constraint;
+                }
+            },
             .allocator = allocator,
             .rand = rand,
             .seed = seed,

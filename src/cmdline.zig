@@ -1,6 +1,7 @@
 const std = @import("std");
 const clap = @import("clap");
 const FamilySimulator = @import("simulate_family.zig").FamilySimulator;
+const TransferConstraint = @import("simulate_family.zig").TransferConstraint;
 const newick_parser = @import("newick_parser.zig");
 
 pub const ParserError = error{NoPathProvided};
@@ -8,24 +9,32 @@ pub const ParserError = error{NoPathProvided};
 pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize, simulator: *FamilySimulator } {
     const params = comptime clap.parseParamsComptime(
         \\--help                                Display this help and exit.
-        \\-i, --species-tree <str>              Path to the species tree
+        \\-i, --species-tree <FILE>              Path to the species tree
         \\-s, --seed <u64>                      RNG seed (default: 42)
         \\-n, --num-gene-families <usize>       Number of gene families to generate (default: 100)
         \\-d, --duplication-rate <f32>          Duplication rate (default: 0.1)
         \\-t, --transfer-rate <f32>             Transfer rate (default: 0.1)
         \\-l, --loss-rate <f32>                 Loss rate (default: 0.1)
         \\-o, --root-origination <f32>          Root origination rate (default: 1.0)
-        \\-b, --branch-rate-modifier <str>...   Individual values for DTL rates on specific species tree branches
+        \\-b, --branch-rate-modifier <MOD>...   Individual values for DTL rates on specific species tree branches
         \\                                      (format <type>:<branch_id>:<value> where type is one of {d, t, r, l, o})
-        \\-h, --highway <str>...                Defines a transfer highway between two species tree branches
+        \\-h, --highway <HIGHWAY>...                Defines a transfer highway between two species tree branches
         \\                                      (format <source_id>:<target_id>:<source_multiplier>:<target_multiplier>)
+        \\-c, --transfer-constraint <CONSTR>     Transfer constraint, either parent, dated or none (default: parent)
     );
 
-    // Initialize our diagnostics, which can be used for reporting useful errors.
-    // This is optional. You can also pass `.{}` to `clap.parse` if you don't
-    // care about the extra information `Diagnostics` provides.
+    const parsers = comptime .{
+        .MOD = clap.parsers.string,
+        .HIGHWAY = clap.parsers.string,
+        .FILE = clap.parsers.string,
+        .DIR = clap.parsers.string,
+        .usize = clap.parsers.int(usize, 10),
+        .u64 = clap.parsers.int(u64, 10),
+        .f32 = clap.parsers.float(f32),
+        .CONSTR = clap.parsers.enumeration(TransferConstraint),
+    };
     var diag = clap.Diagnostic{};
-    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+    var res = clap.parse(clap.Help, &params, parsers, .{
         .diagnostic = &diag,
         .allocator = allocator.*,
     }) catch |err| {
@@ -61,6 +70,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         res.args.@"loss-rate" orelse 0.1,
         res.args.@"root-origination" orelse 1.0,
         res.args.seed orelse 42,
+        res.args.@"transfer-constraint" orelse TransferConstraint.parent,
         res.args.@"branch-rate-modifier",
     );
     for (res.args.highway) |highway| {
