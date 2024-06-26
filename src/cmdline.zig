@@ -53,7 +53,16 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
     var species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     species_tree.print();
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
-    const sim = try FamilySimulator.init(species_tree, allocator, res.args.@"duplication-rate" orelse 0.1, res.args.@"transfer-rate" orelse 0.1, res.args.@"loss-rate" orelse 0.1, res.args.@"root-origination" orelse 0.1, res.args.seed orelse 42, res.args.@"branch-rate-modifier");
+    const sim = try FamilySimulator.init(
+        species_tree,
+        allocator,
+        res.args.@"duplication-rate" orelse 0.1,
+        res.args.@"transfer-rate" orelse 0.1,
+        res.args.@"loss-rate" orelse 0.1,
+        res.args.@"root-origination" orelse 0.1,
+        res.args.seed orelse 42,
+        res.args.@"branch-rate-modifier",
+    );
     for (res.args.highway) |highway| {
         var it = std.mem.tokenizeScalar(u8, highway, ':');
         const source = try std.fmt.parseInt(usize, it.next().?, 10);

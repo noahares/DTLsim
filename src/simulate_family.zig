@@ -97,7 +97,20 @@ pub const FamilySimulator = struct {
         const event_counts = EventCounts{};
         const highways = std.AutoHashMap(usize, std.ArrayList(*Highway)).init(allocator.*);
         const simulator = try allocator.create(FamilySimulator);
-        simulator.* = FamilySimulator{ .species_tree = species_tree, .origination_rates = origination_rates, .duplication_rates = duplication_rates, .transfer_rates_from = transfer_rates_from, .transfer_rates_to = transfer_rates_to, .loss_rates = loss_rates, .num_gene_copies = num_gene_copies, .allocator = allocator, .rand = rand, .seed = seed, .event_counts = event_counts, .highways = highways };
+        simulator.* = FamilySimulator{
+            .species_tree = species_tree,
+            .origination_rates = origination_rates,
+            .duplication_rates = duplication_rates,
+            .transfer_rates_from = transfer_rates_from,
+            .transfer_rates_to = transfer_rates_to,
+            .loss_rates = loss_rates,
+            .num_gene_copies = num_gene_copies,
+            .allocator = allocator,
+            .rand = rand,
+            .seed = seed,
+            .event_counts = event_counts,
+            .highways = highways,
+        };
         return simulator;
     }
 
