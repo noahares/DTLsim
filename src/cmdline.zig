@@ -59,7 +59,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         res.args.@"duplication-rate" orelse 0.1,
         res.args.@"transfer-rate" orelse 0.1,
         res.args.@"loss-rate" orelse 0.1,
-        res.args.@"root-origination" orelse 0.1,
+        res.args.@"root-origination" orelse 1.0,
         res.args.seed orelse 42,
         res.args.@"branch-rate-modifier",
     );
