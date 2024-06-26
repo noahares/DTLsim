@@ -54,11 +54,11 @@ pub const FamilySimulator = struct {
     event_counts: EventCounts,
     highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, seed: u64) !*FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, seed: u64, branch_modifiers: []const []const u8) !*FamilySimulator {
         const O_r = 1.0;
-        const D: f32 = 0.1;
-        const T: f32 = 0.05;
-        const L: f32 = 0.1;
+        const D: f32 = d;
+        const T: f32 = t;
+        const L: f32 = l;
 
         const num_species_nodes = species_tree.numNodes();
         const origination_rates = try allocator.alloc(f32, num_species_nodes);
@@ -77,6 +77,21 @@ pub const FamilySimulator = struct {
         @memset(loss_rates, L);
         @memset(num_gene_copies, 0);
 
+        for (branch_modifiers) |mod| {
+            var it = std.mem.tokenizeScalar(u8, mod, ':');
+            const rate_type = it.next().?[0];
+            const branch_id = try std.fmt.parseInt(usize, it.next().?, 10);
+            const value = try std.fmt.parseFloat(f32, it.next().?);
+            switch (rate_type) {
+                'd' => duplication_rates[branch_id] = value,
+                't' => transfer_rates_from[branch_id] = value,
+                'r' => transfer_rates_to[branch_id] = value,
+                'l' => loss_rates[branch_id] = value,
+                'o' => origination_rates[branch_id] = value,
+                else => unreachable,
+            }
+        }
+
         origination_rates[0] = O_r;
         const rand = std.rand.DefaultPrng.init(seed);
         const event_counts = EventCounts{};
@@ -86,16 +101,20 @@ pub const FamilySimulator = struct {
         return simulator;
     }
 
-    pub fn simulate_family(self: *FamilySimulator) !Tree {
+    pub fn deinit(self: *FamilySimulator) void {
+        self.species_tree.deinit();
+    }
+
+    pub fn simulate_family(self: *FamilySimulator) !*Tree {
         self.event_counts.reset();
         @memset(self.num_gene_copies, 0);
         self.seed += 1;
         self.rand.seed(self.seed);
-        var gene_tree = Tree.init(self.allocator);
+        var gene_tree = try Tree.init(self.allocator);
         const gene_origination = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.origination_rates)];
         const gene_root = try gene_tree.newNode(null, null, null);
         gene_tree.setRoot(gene_root);
-        try self.process_species_node(&gene_tree, gene_root, gene_origination);
+        try self.process_species_node(gene_tree, gene_root, gene_origination);
         self.event_counts.print();
         return gene_tree;
     }

@@ -21,8 +21,8 @@ const Token = union(TokenType) {
     Taxon: []const u8,
 };
 
-pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !Tree {
-    var tree = Tree.init(allocator);
+pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tree {
+    const tree = try Tree.init(allocator);
     const root = try tree.newNode(null, null, null);
     tree.setRoot(root);
     var current_node = root;

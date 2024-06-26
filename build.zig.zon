@@ -44,6 +44,10 @@
         //    .lazy = false,
         //},
         .regex = .{ .url = "https://github.com/tiehuis/zig-regex/archive/825181369f30bc0d0554d9d330d34db4162b91e5.tar.gz", .hash = "122090c3c6b4a8745fb22e721ae4e2e55b73347769696fd84170c660fe16c1f062e6" },
+        .clap = .{
+            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.8.0.tar.gz",
+            .hash = "1220949d4e88864579067b6d4cdad6476c6176f27e782782c2c39b7f2c4817a10efb",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
