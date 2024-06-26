@@ -54,11 +54,11 @@ pub const FamilySimulator = struct {
     event_counts: EventCounts,
     highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, seed: u64, branch_modifiers: []const []const u8) !*FamilySimulator {
-        const O_r = 1.0;
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, branch_modifiers: []const []const u8) !*FamilySimulator {
         const D: f32 = d;
         const T: f32 = t;
         const L: f32 = l;
+        const O_r = o;
 
         const num_species_nodes = species_tree.numNodes();
         const origination_rates = try allocator.alloc(f32, num_species_nodes);

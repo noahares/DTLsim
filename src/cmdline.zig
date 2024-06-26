@@ -14,6 +14,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         \\-d, --duplication-rate <f32>          Duplication rate (default: 0.1)
         \\-t, --transfer-rate <f32>             Transfer rate (default: 0.1)
         \\-l, --loss-rate <f32>                 Loss rate (default: 0.1)
+        \\-o, --root-origination <f32>          Root origination rate (default: 1.0)
         \\-b, --branch-rate-modifier <str>...   Individual values for DTL rates on specific species tree branches
         \\                                      (format <type>:<branch_id>:<value> where type is one of {d, t, r, l, o})
         \\-h, --highway <str>...                Defines a transfer highway between two species tree branches
@@ -52,7 +53,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
     var species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     species_tree.print();
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
-    const sim = try FamilySimulator.init(species_tree, allocator, res.args.@"duplication-rate" orelse 0.1, res.args.@"transfer-rate" orelse 0.1, res.args.@"loss-rate" orelse 0.1, res.args.seed orelse 42, res.args.@"branch-rate-modifier");
+    const sim = try FamilySimulator.init(species_tree, allocator, res.args.@"duplication-rate" orelse 0.1, res.args.@"transfer-rate" orelse 0.1, res.args.@"loss-rate" orelse 0.1, res.args.@"root-origination" orelse 0.1, res.args.seed orelse 42, res.args.@"branch-rate-modifier");
     for (res.args.highway) |highway| {
         var it = std.mem.tokenizeScalar(u8, highway, ':');
         const source = try std.fmt.parseInt(usize, it.next().?, 10);
