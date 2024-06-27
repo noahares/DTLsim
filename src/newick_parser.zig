@@ -26,7 +26,6 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tre
     const root = try tree.newNode(null, null, null);
     tree.setRoot(root);
     var current_node = root;
-    var name_re = try Regex.compile(allocator.*, "([A-Za-z0-9_|]+)");
     // var n_nodes: usize = 0;
     // for (input) |c| {
     //     if (c == ',') {
@@ -35,9 +34,6 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tre
     // }
     // n_nodes = n_nodes * 2 + 1;
     // std.debug.print("Number of nodes: {}\n", .{n_nodes});
-    defer name_re.deinit();
-    var brlen_re = try Regex.compile(allocator.*, "(^[0-9.+eE-]+)");
-    defer brlen_re.deinit();
     var cursor: usize = 0;
     while (true) {
         switch (input[cursor]) {
@@ -63,19 +59,31 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tre
             },
             ':' => {
                 cursor += 1;
-                const brlen_cap = (try brlen_re.captures(input[cursor..])).?;
-                const brlen_str = brlen_cap.sliceAt(1).?;
+                var end = cursor;
+                while (input[end] != '(' and
+                    input[end] != ',' and
+                    input[end] != ';' and
+                    input[end] != ' ' and
+                    input[end] != ')') : (end += 1)
+                {}
+                const brlen_str = input[cursor..end];
                 current_node.branch_length = try std.fmt.parseFloat(f32, brlen_str);
-                cursor += brlen_str.len;
+                cursor = end;
             },
             ';' => {
                 break;
             },
             else => {
-                const name_cap = (try name_re.captures(input[cursor..])).?;
-                const name = name_cap.sliceAt(1).?;
+                var end = cursor;
+                while (input[end] != ':' and
+                    input[end] != ',' and
+                    input[end] != ';' and
+                    input[end] != ' ' and
+                    input[end] != ')') : (end += 1)
+                {}
+                const name = input[cursor..end];
                 current_node.name = name;
-                cursor += name.len;
+                cursor = end;
             },
         }
     } else unreachable;

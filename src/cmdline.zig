@@ -57,9 +57,8 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
             return ParserError.NoPathProvided;
         }
     };
-    const file = try std.fs.cwd().openFile(species_tree_path, .{});
-    defer file.close();
-    const newick_string = (try file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', 2048)).?;
+    const newick_string = (try read_first_line_from_file(allocator, species_tree_path)).?;
+    // std.debug.print("Done parsing\n", .{});
     var species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     species_tree.print();
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
@@ -84,4 +83,11 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         try sim.addHighway(source, target, source_multiplier, target_multiplier);
     }
     return .{ .num_gene_families = num_gene_families, .simulator = sim };
+}
+
+fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) !?[]u8 {
+    var file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+    const file_size = (try file.stat()).size + 1;
+    return file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', file_size);
 }

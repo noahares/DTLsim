@@ -179,12 +179,12 @@ pub const FamilySimulator = struct {
             }
         };
 
-        const buf = try self.allocator.alloc(u8, 100);
+        const buf = try self.allocator.alloc(u8, 1024);
         switch (event) {
             .duplication => {
                 // std.debug.print("Duplication above node {}\n", .{node_id});
                 self.event_counts.duplication += 1;
-                const buf2 = try self.allocator.alloc(u8, 100);
+                const buf2 = try self.allocator.alloc(u8, 1024);
                 parent_gene_node.name = try std.fmt.bufPrint(buf, "D@{s}", .{try species_node.name_or_id(buf2)});
                 const first_copy = try gene_tree.newNode(null, null, parent_gene_node);
                 const second_copy = try gene_tree.newNode(null, null, parent_gene_node);
@@ -198,8 +198,8 @@ pub const FamilySimulator = struct {
                 // std.debug.print("Transfer above node {} to node {}\n", .{ node_id, recipient.id });
                 self.event_counts.transfer += 1;
                 // TODO: this seems a bit ugly.. can be done better?
-                const buf2 = try self.allocator.alloc(u8, 100);
-                const buf3 = try self.allocator.alloc(u8, 100);
+                const buf2 = try self.allocator.alloc(u8, 1024);
+                const buf3 = try self.allocator.alloc(u8, 1024);
                 parent_gene_node.name = try std.fmt.bufPrint(buf, "T@{s}->{s}", .{ try species_node.name_or_id(buf2), try recipient.name_or_id(buf3) });
                 const donor_copy = try gene_tree.newNode(null, null, parent_gene_node);
                 const recipient_copy = try gene_tree.newNode(null, null, parent_gene_node);
