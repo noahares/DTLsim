@@ -36,14 +36,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const regex_dep = b.dependency("regex", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const regex_mod = regex_dep.module("regex");
-    // exe.module("regex", regex.module("regex"));
-    exe.root_module.addImport("regex", regex_mod);
-
     const clap = b.dependency("clap", .{
         .target = target,
         .optimize = optimize,
