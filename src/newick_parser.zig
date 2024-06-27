@@ -13,6 +13,10 @@ const TokenType = enum {
     Taxon,
 };
 
+pub const NewickParseError = error{
+    UnexpectedToken,
+} || std.mem.Allocator.Error;
+
 const Token = union(TokenType) {
     OpenParen: void,
     CloseParen: void,
@@ -21,7 +25,7 @@ const Token = union(TokenType) {
     Taxon: []const u8,
 };
 
-pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tree {
+pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) NewickParseError!*Tree {
     const tree = try Tree.init(allocator);
     var current_node = tree.root.?;
     var cursor: usize = 0;
@@ -57,7 +61,7 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tre
                     input[end] != ')') : (end += 1)
                 {}
                 const brlen_str = input[cursor..end];
-                current_node.branch_length = try std.fmt.parseFloat(f32, brlen_str);
+                current_node.branch_length = std.fmt.parseFloat(f32, brlen_str) catch return NewickParseError.UnexpectedToken;
                 cursor = end;
             },
             ';' => {

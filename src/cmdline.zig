@@ -1,10 +1,15 @@
 const std = @import("std");
 const clap = @import("clap");
-const FamilySimulator = @import("simulate_family.zig").FamilySimulator;
-const TransferConstraint = @import("simulate_family.zig").TransferConstraint;
+const simulator = @import("simulate_family.zig");
 const newick_parser = @import("newick_parser.zig");
 
-pub const ParserError = error{NoPathProvided};
+pub const ParseError = error{
+    NoPathProvided,
+    ArgumentParseError,
+    HighwayParseError,
+    IOError,
+};
+pub const InitializationError = ParseError || newick_parser.NewickParseError || simulator.SimulatorError;
 
 pub const Config = struct {
     num_gene_families: usize,
@@ -13,7 +18,7 @@ pub const Config = struct {
     redo: bool,
 };
 
-pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator: *FamilySimulator } {
+pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config: Config, simulator: *simulator.FamilySimulator } {
     const params = comptime clap.parseParamsComptime(
         \\--help                                Display this help and exit.
         \\-i, --species-tree <FILE>             Path to the species tree
@@ -41,7 +46,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator
         .usize = clap.parsers.int(usize, 10),
         .u64 = clap.parsers.int(u64, 10),
         .f32 = clap.parsers.float(f32),
-        .CONSTR = clap.parsers.enumeration(TransferConstraint),
+        .CONSTR = clap.parsers.enumeration(simulator.TransferConstraint),
     };
     var diag = clap.Diagnostic{};
     var res = clap.parse(clap.Help, &params, parsers, .{
@@ -50,12 +55,12 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator
     }) catch |err| {
         // Report useful error and exit
         diag.report(std.io.getStdErr().writer(), err) catch {};
-        return err;
+        return ParseError.ArgumentParseError;
     };
     defer res.deinit();
 
     if (res.args.help != 0) {
-        try clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
+        clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{}) catch return ParseError.ArgumentParseError;
         return null;
     }
 
@@ -63,13 +68,13 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator
         if (res.args.@"species-tree") |path| {
             break :blk path;
         } else {
-            return ParserError.NoPathProvided;
+            return ParseError.NoPathProvided;
         }
     };
-    const newick_string = (try read_first_line_from_file(allocator, species_tree_path)).?;
+    const newick_string = (read_first_line_from_file(allocator, species_tree_path) catch return InitializationError.IOError).?;
     const species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
-    const sim = try FamilySimulator.init(
+    const sim = try simulator.FamilySimulator.init(
         species_tree,
         allocator,
         res.args.@"duplication-rate" orelse 0.1,
@@ -77,17 +82,18 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator
         res.args.@"loss-rate" orelse 0.1,
         res.args.@"root-origination" orelse 1.0,
         res.args.seed orelse 42,
-        res.args.@"transfer-constraint" orelse TransferConstraint.parent,
+        res.args.@"transfer-constraint" orelse simulator.TransferConstraint.parent,
         res.args.@"post-transfer-loss" orelse 1.0,
         res.args.@"branch-rate-modifier",
     );
     for (res.args.highway) |highway| {
         var it = std.mem.tokenizeScalar(u8, highway, ':');
-        const source = try std.fmt.parseInt(usize, it.next().?, 10);
-        const target = try std.fmt.parseInt(usize, it.next().?, 10);
-        const source_multiplier = try std.fmt.parseFloat(f32, it.next().?);
-        const target_multiplier = try std.fmt.parseFloat(f32, it.next().?);
-        try sim.addHighway(source, target, source_multiplier, target_multiplier);
+        if (it.buffer.len != 4) return ParseError.HighwayParseError;
+        const source = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
+        const target = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
+        const source_multiplier = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
+        const target_multiplier = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
+        sim.addHighway(source, target, source_multiplier, target_multiplier) catch return ParseError.HighwayParseError;
     }
     return .{
         .config = Config{
@@ -105,8 +111,4 @@ fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) !?
     defer file.close();
     const file_size = (try file.stat()).size + 1;
     return file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', file_size);
-}
-
-pub fn create_output_folder(prefix: []const u8) !void {
-    try std.fs.cwd().makePath(prefix);
 }

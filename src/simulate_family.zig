@@ -1,6 +1,8 @@
 const std = @import("std");
 const Tree = @import("tree.zig").Tree;
 const TreeNode = @import("tree_node.zig").TreeNode;
+const AllocError = std.mem.Allocator.Error;
+const BufPrintError = std.fmt.BufPrintError;
 
 pub const DTL_event = union(enum) {
     duplication,
@@ -47,7 +49,10 @@ pub const Highway = struct {
 
 pub const SimulatorError = error{
     TransferConstraintNotSupported,
-};
+    BranchModifierParseError,
+} || AllocError;
+
+pub const SimulatorRunError = AllocError || BufPrintError;
 
 pub const FamilySimulator = struct {
     species_tree: *Tree,
@@ -65,7 +70,7 @@ pub const FamilySimulator = struct {
     event_counts: EventCounts,
     highways: std.AutoHashMap(usize, std.ArrayList(*Highway)),
 
-    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, transfer_constraint: TransferConstraint, post_transfer_loss_factor: f32, branch_modifiers: []const []const u8) !*FamilySimulator {
+    pub fn init(species_tree: *Tree, allocator: *const std.mem.Allocator, d: f32, t: f32, l: f32, o: f32, seed: u64, transfer_constraint: TransferConstraint, post_transfer_loss_factor: f32, branch_modifiers: []const []const u8) SimulatorError!*FamilySimulator {
         const D: f32 = d;
         const T: f32 = t;
         const L: f32 = l;
@@ -89,16 +94,17 @@ pub const FamilySimulator = struct {
 
         for (branch_modifiers) |mod| {
             var it = std.mem.tokenizeScalar(u8, mod, ':');
+            if (it.buffer.len != 3) return SimulatorError.BranchModifierParseError;
             const rate_type = it.next().?[0];
-            const branch_id = try std.fmt.parseInt(usize, it.next().?, 10);
-            const value = try std.fmt.parseFloat(f32, it.next().?);
+            const branch_id = std.fmt.parseInt(usize, it.next().?, 10) catch return SimulatorError.BranchModifierParseError;
+            const value = std.fmt.parseFloat(f32, it.next().?) catch return SimulatorError.BranchModifierParseError;
             switch (rate_type) {
                 'd' => duplication_rates[branch_id] = value,
                 't' => transfer_rates_from[branch_id] = value,
                 'r' => transfer_rates_to[branch_id] = value,
                 'l' => loss_rates[branch_id] = value,
                 'o' => origination_rates[branch_id] = value,
-                else => unreachable,
+                else => return SimulatorError.BranchModifierParseError,
             }
         }
 
@@ -136,7 +142,7 @@ pub const FamilySimulator = struct {
         self.species_tree.deinit();
     }
 
-    pub fn simulate_family(self: *FamilySimulator) !struct { gene_tree: *Tree, event_counts: EventCounts } {
+    pub fn simulate_family(self: *FamilySimulator) SimulatorRunError!struct { gene_tree: *Tree, event_counts: EventCounts } {
         defer self.event_counts.reset();
         @memset(self.num_gene_copies, 0);
         self.seed += 1;
@@ -148,7 +154,7 @@ pub const FamilySimulator = struct {
         return .{ .gene_tree = gene_tree, .event_counts = self.event_counts };
     }
 
-    pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode, transfer_recipient: bool) !void {
+    pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode, transfer_recipient: bool) SimulatorRunError!void {
         const node_id = species_node.id;
         var d = self.duplication_rates[node_id];
         var t = self.transfer_rates_from[node_id];
@@ -239,7 +245,7 @@ pub const FamilySimulator = struct {
         }
     }
 
-    fn sample_transfer_node(self: *FamilySimulator, transfer_origin: *TreeNode) !*TreeNode {
+    fn sample_transfer_node(self: *FamilySimulator, transfer_origin: *TreeNode) AllocError!*TreeNode {
         switch (self.transfer_constraint) {
             .parent => {
                 var current_node = transfer_origin;

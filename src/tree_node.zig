@@ -51,11 +51,11 @@ pub const TreeNode = struct {
         }
     }
 
-    pub fn name_or_id(self: *TreeNode, buf: []u8) ![]u8 {
+    pub fn name_or_id(self: *TreeNode, buf: []u8) std.fmt.BufPrintError![]u8 {
         if (self.name) |name| {
-            return try std.fmt.bufPrint(buf, "{s}", .{name});
+            return std.fmt.bufPrint(buf, "{s}", .{name});
         } else {
-            return try std.fmt.bufPrint(buf, "{}", .{self.id});
+            return std.fmt.bufPrint(buf, "{}", .{self.id});
         }
     }
 };
