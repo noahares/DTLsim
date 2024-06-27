@@ -23,17 +23,7 @@ const Token = union(TokenType) {
 
 pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tree {
     const tree = try Tree.init(allocator);
-    const root = try tree.newNode(null, null, null);
-    tree.setRoot(root);
-    var current_node = root;
-    // var n_nodes: usize = 0;
-    // for (input) |c| {
-    //     if (c == ',') {
-    //         n_nodes += 1;
-    //     }
-    // }
-    // n_nodes = n_nodes * 2 + 1;
-    // std.debug.print("Number of nodes: {}\n", .{n_nodes});
+    var current_node = tree.root.?;
     var cursor: usize = 0;
     while (true) {
         switch (input[cursor]) {
@@ -86,6 +76,6 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) !*Tre
                 cursor = end;
             },
         }
-    } else unreachable;
+    }
     return tree;
 }

@@ -6,10 +6,19 @@ const newick_parser = @import("newick_parser.zig");
 
 pub const ParserError = error{NoPathProvided};
 
-pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize, simulator: *FamilySimulator } {
+pub const Config = struct {
+    num_gene_families: usize,
+    post_transfer_loss_gamma: struct { shape: f32, scale: f32 },
+    out_prefix: []const u8,
+    redo: bool,
+};
+
+pub fn parse(allocator: *std.mem.Allocator) !?struct { config: Config, simulator: *FamilySimulator } {
     const params = comptime clap.parseParamsComptime(
         \\--help                                Display this help and exit.
         \\-i, --species-tree <FILE>             Path to the species tree
+        \\-p, --prefix <DIR>                    Prefix directory for the output files (default: $CWD)
+        \\--redo                                Override existing output files
         \\-s, --seed <u64>                      RNG seed (default: 42)
         \\-n, --num-gene-families <usize>       Number of gene families to generate (default: 100)
         \\-d, --duplication-rate <f32>          Duplication rate (default: 0.1)
@@ -58,9 +67,7 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         }
     };
     const newick_string = (try read_first_line_from_file(allocator, species_tree_path)).?;
-    // std.debug.print("Done parsing\n", .{});
-    var species_tree = try newick_parser.parseNewickString(allocator, newick_string);
-    species_tree.print();
+    const species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
     const sim = try FamilySimulator.init(
         species_tree,
@@ -82,7 +89,15 @@ pub fn parse(allocator: *std.mem.Allocator) !?struct { num_gene_families: usize,
         const target_multiplier = try std.fmt.parseFloat(f32, it.next().?);
         try sim.addHighway(source, target, source_multiplier, target_multiplier);
     }
-    return .{ .num_gene_families = num_gene_families, .simulator = sim };
+    return .{
+        .config = Config{
+            .num_gene_families = num_gene_families,
+            .post_transfer_loss_gamma = .{ .shape = 1.0, .scale = 1.0 },
+            .out_prefix = res.args.prefix orelse ".",
+            .redo = res.args.redo != 0,
+        },
+        .simulator = sim,
+    };
 }
 
 fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) !?[]u8 {
@@ -90,4 +105,8 @@ fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) !?
     defer file.close();
     const file_size = (try file.stat()).size + 1;
     return file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', file_size);
+}
+
+pub fn create_output_folder(prefix: []const u8) !void {
+    try std.fs.cwd().makePath(prefix);
 }

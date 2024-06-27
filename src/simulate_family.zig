@@ -21,8 +21,14 @@ pub const EventCounts = struct {
     loss: usize = 0,
     speciation: usize = 0,
 
-    pub fn print(self: *EventCounts) void {
-        std.debug.print("D: {}, T: {}, L: {}, S: {}\n", self.*);
+    pub fn print(self: *EventCounts, writer: anytype, id: usize) !void {
+        try writer.print("G{}\tD: {}, T: {}, L: {}, S: {}\n", .{
+            id,
+            self.duplication,
+            self.transfer,
+            self.loss,
+            self.speciation,
+        });
     }
 
     pub fn reset(self: *EventCounts) void {
@@ -130,18 +136,16 @@ pub const FamilySimulator = struct {
         self.species_tree.deinit();
     }
 
-    pub fn simulate_family(self: *FamilySimulator) !*Tree {
-        self.event_counts.reset();
+    pub fn simulate_family(self: *FamilySimulator) !struct { gene_tree: *Tree, event_counts: EventCounts } {
+        defer self.event_counts.reset();
         @memset(self.num_gene_copies, 0);
         self.seed += 1;
         self.rand.seed(self.seed);
-        var gene_tree = try Tree.init(self.allocator);
+        const gene_tree = try Tree.init(self.allocator);
         const gene_origination = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.origination_rates)];
-        const gene_root = try gene_tree.newNode(null, null, null);
-        gene_tree.setRoot(gene_root);
+        const gene_root = gene_tree.root.?;
         try self.process_species_node(gene_tree, gene_root, gene_origination, false);
-        self.event_counts.print();
-        return gene_tree;
+        return .{ .gene_tree = gene_tree, .event_counts = self.event_counts };
     }
 
     pub fn process_species_node(self: *FamilySimulator, gene_tree: *Tree, parent_gene_node: *TreeNode, species_node: *TreeNode, transfer_recipient: bool) !void {

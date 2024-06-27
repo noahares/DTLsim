@@ -10,6 +10,8 @@ pub const Tree = struct {
     pub fn init(allocator: *const std.mem.Allocator) !*Tree {
         const tree = try allocator.create(Tree);
         tree.* = Tree{ .root = null, .allocator = allocator, .post_order_nodes = std.ArrayList(*TreeNode).init(allocator.*), ._next_node_id = 0 };
+        const root = try tree.newNode(null, null, null);
+        tree.root = root;
         return tree;
     }
 
@@ -17,10 +19,6 @@ pub const Tree = struct {
         self.root = null;
         self.post_order_nodes.clearAndFree();
         self._next_node_id = 0;
-    }
-
-    pub fn setRoot(self: *Tree, root: *TreeNode) void {
-        self.root = root;
     }
 
     pub fn newNode(self: *Tree, name: ?[]const u8, branch_length: ?f32, parent: ?*TreeNode) !*TreeNode {
@@ -35,14 +33,13 @@ pub const Tree = struct {
         return self._next_node_id;
     }
 
-    pub fn print(self: *Tree) void {
+    pub fn print(self: *Tree, writer: anytype) !void {
         if (self.root) |node| {
-            node.print();
-            std.debug.print(";\n", .{});
+            try node.print(writer);
+            try writer.print(";\n", .{});
         } else {
-            std.debug.print("();\n", .{});
+            try writer.print("();\n", .{});
         }
-        // std.debug.print("Number of nodes: {}\n", .{self.numNodes()});
     }
 
     pub fn restore_bifurcation(self: *Tree, node: *TreeNode) void {

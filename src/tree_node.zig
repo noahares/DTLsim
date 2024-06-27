@@ -31,23 +31,23 @@ pub const TreeNode = struct {
         self.parent = null;
     }
 
-    pub fn print(self: *TreeNode) void {
+    pub fn print(self: *TreeNode, writer: anytype) !void {
         if (self.left_child) |c| {
-            std.debug.print("(", .{});
-            c.print();
+            try writer.print("(", .{});
+            try c.print(writer);
         }
         if (self.right_child) |c| {
-            std.debug.print(",", .{});
-            c.print();
-            std.debug.print(")", .{});
+            try writer.print(",", .{});
+            try c.print(writer);
+            try writer.print(")", .{});
         }
         if (self.name) |name| {
-            std.debug.print("{s}", .{name});
+            try writer.print("{s}", .{name});
         } else if (self.left_child) |_| {
-            std.debug.print(".{}", .{self.id});
+            try writer.print(".{}", .{self.id});
         }
         if (self.branch_length) |b| {
-            std.debug.print(":{d:.2}", .{b});
+            try writer.print(":{d:.2}", .{b});
         }
     }
 

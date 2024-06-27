@@ -9,14 +9,27 @@ pub fn main() !void {
     var alloc = arena.allocator();
     const parse_res = try cmdline.parse(&alloc);
     if (parse_res == null) return;
-    const num_gene_families = parse_res.?.num_gene_families;
+    const config = parse_res.?.config;
     const sim = parse_res.?.simulator;
     defer sim.deinit();
-    for (0..num_gene_families) |_| {
-        var gene_tree = try sim.simulate_family();
-        defer gene_tree.deinit();
-        gene_tree.print();
+    var dir = try std.fs.cwd().makeOpenPath(config.out_prefix, .{});
+    defer dir.close();
+    const event_file = dir.createFile("event_counts.txt", .{ .exclusive = !config.redo });
+    defer event_file.close();
+    var event_writer = std.io.bufferedWriter(event_file.writer());
+    const filename_buf = try alloc.alloc(u8, std.fs.MAX_PATH_BYTES);
+    for (0..config.num_gene_families) |i| {
+        const out_file_name = try std.fmt.bufPrint(filename_buf, "family{}.nwk", .{i});
+        const out_file = try dir.createFile(out_file_name, .{ .exclusive = !config.redo });
+        defer out_file.close();
+        var buf_writer = std.io.bufferedWriter(out_file.writer());
+        var res = try sim.simulate_family();
+        // defer gene_tree.deinit();
+        try res.event_counts.print(&event_writer.writer(), i);
+        try res.gene_tree.print(&buf_writer.writer());
+        try buf_writer.flush();
     }
+    try event_writer.flush();
 }
 
 test "simple test" {
