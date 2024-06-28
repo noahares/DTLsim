@@ -2,6 +2,7 @@ const std = @import("std");
 const clap = @import("clap");
 const simulator = @import("simulate_family.zig");
 const newick_parser = @import("newick_parser.zig");
+const utils = @import("utils.zig");
 
 const ParseError = error{
     NoPathProvided,
@@ -87,13 +88,12 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
         res.args.@"branch-rate-modifier",
     );
     for (res.args.highway) |highway| {
+        if (!utils.expect_token(highway, ':', 3)) return ParseError.HighwayParseError;
         var it = std.mem.tokenizeScalar(u8, highway, ':');
-        if (it.buffer.len != 4) return ParseError.HighwayParseError;
         const source = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
         const target = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
-        const source_multiplier = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
-        const target_multiplier = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
-        sim.addHighway(source, target, source_multiplier, target_multiplier) catch return ParseError.HighwayParseError;
+        const probability = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
+        sim.addHighway(source, target, probability) catch return ParseError.HighwayParseError;
     }
     return .{
         .config = Config{

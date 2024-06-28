@@ -3,12 +3,14 @@ const Tree = @import("tree.zig").Tree;
 const TreeNode = @import("tree_node.zig").TreeNode;
 const AllocError = std.mem.Allocator.Error;
 const BufPrintError = std.fmt.BufPrintError;
+const utils = @import("utils.zig");
 
 pub const DTL_event = union(enum) {
     duplication,
     transfer,
     loss,
     speciation,
+    highway: usize,
 };
 
 pub const TransferConstraint = enum {
@@ -22,13 +24,15 @@ pub const EventCounts = struct {
     transfer: usize = 0,
     loss: usize = 0,
     speciation: usize = 0,
+    highway_transfer: usize = 0,
 
     pub fn print(self: *EventCounts, writer: anytype, id: usize) !void {
-        try writer.print("G{}\tD: {}, T: {}, L: {}, S: {}\n", .{
+        try writer.print("G{}\tD: {}, T: {}, L: {}, H: {}, S: {}\n", .{
             id,
             self.duplication,
             self.transfer,
             self.loss,
+            self.highway_transfer,
             self.speciation,
         });
     }
@@ -38,13 +42,13 @@ pub const EventCounts = struct {
         self.transfer = 0;
         self.loss = 0;
         self.speciation = 0;
+        self.highway_transfer = 0;
     }
 };
 
 pub const Highway = struct {
     recipient: usize,
-    transfer_muliplier: f32,
-    recipient_muliplier: f32,
+    probability: f32,
 };
 
 pub const SimulatorError = error{
@@ -93,8 +97,8 @@ pub const FamilySimulator = struct {
         @memset(num_gene_copies, 0);
 
         for (branch_modifiers) |mod| {
+            if (!utils.expect_token(mod, ':', 3)) return SimulatorError.BranchModifierParseError;
             var it = std.mem.tokenizeScalar(u8, mod, ':');
-            if (it.buffer.len != 3) return SimulatorError.BranchModifierParseError;
             const rate_type = it.next().?[0];
             const branch_id = std.fmt.parseInt(usize, it.next().?, 10) catch return SimulatorError.BranchModifierParseError;
             const value = std.fmt.parseFloat(f32, it.next().?) catch return SimulatorError.BranchModifierParseError;
@@ -164,28 +168,47 @@ pub const FamilySimulator = struct {
             l *= self.post_transfer_loss_factor;
         }
 
-        var highway_transfer_weight: f32 = 1.0;
-        if (self.highways.get(node_id)) |highways| {
-            for (highways.items) |highway| {
-                highway_transfer_weight += highway.transfer_muliplier;
+        const highways = self.highways.get(node_id);
+
+        var sum = 1.0 + d + t + l;
+        if (highways) |hws| {
+            for (hws.items) |highway| {
+                sum += highway.probability;
             }
         }
-        t *= highway_transfer_weight;
-        const sum = 1.0 + d + t + l;
         d /= sum;
         t /= sum;
         l /= sum;
-        const event = blk: {
-            const p = self.rand.random().float(f32);
+        const s = 1.0 / sum;
 
+        const highway_probabilities = blk: {
+            if (highways) |hws| {
+                const hp = try self.allocator.alloc(f32, hws.items.len);
+                for (hws.items, 0..) |highway, i| {
+                    hp[i] = highway.probability / sum;
+                }
+                break :blk hp;
+            } else break :blk null;
+        };
+
+        const p = self.rand.random().float(f32);
+        const event = blk: {
             if (p <= d) {
                 break :blk DTL_event.duplication;
             } else if (p <= d + t) {
                 break :blk DTL_event.transfer;
             } else if (p <= d + t + l) {
                 break :blk DTL_event.loss;
-            } else {
+            } else if (p <= d + t + l + s) {
                 break :blk DTL_event.speciation;
+            } else {
+                var prob_sum = d + t + l + s;
+                for (highway_probabilities.?, highways.?.items) |proba, hw| {
+                    prob_sum += proba;
+                    if (p <= prob_sum) {
+                        break :blk DTL_event{ .highway = hw.recipient };
+                    }
+                } else unreachable;
             }
         };
 
@@ -242,6 +265,20 @@ pub const FamilySimulator = struct {
                     self.num_gene_copies[node_id] += 1;
                 }
             },
+            .highway => |recipient_id| {
+                const recipient = self.species_tree.post_order_nodes.items[recipient_id];
+                self.event_counts.highway_transfer += 1;
+                // TODO: this seems a bit ugly.. can be done better?
+                const buf2 = try self.allocator.alloc(u8, 1024);
+                const buf3 = try self.allocator.alloc(u8, 1024);
+                parent_gene_node.name = try std.fmt.bufPrint(buf, "H@{s}->{s}", .{ try species_node.name_or_id(buf2), try recipient.name_or_id(buf3) });
+                const donor_copy = try gene_tree.newNode(null, null, parent_gene_node);
+                const recipient_copy = try gene_tree.newNode(null, null, parent_gene_node);
+                parent_gene_node.left_child = donor_copy;
+                parent_gene_node.right_child = recipient_copy;
+                try self.process_species_node(gene_tree, donor_copy, species_node, false);
+                try self.process_species_node(gene_tree, recipient_copy, recipient, true);
+            },
         }
     }
 
@@ -256,20 +293,8 @@ pub const FamilySimulator = struct {
                     try forbidden_transfers.append(parent.id);
                     current_node = parent;
                 }
-                const receiving_transfer_rates = blk: {
-                    if (self.highways.get(transfer_origin.id)) |highways| {
-                        var copied_rates = try self.allocator.alloc(f32, self.transfer_rates_to.len);
-                        @memcpy(copied_rates, self.transfer_rates_to);
-                        for (highways.items) |highway| {
-                            copied_rates[highway.recipient] *= highway.recipient_muliplier;
-                        }
-                        break :blk copied_rates;
-                    } else {
-                        break :blk self.transfer_rates_to;
-                    }
-                };
                 propose_target: while (true) {
-                    const transfer_candidate = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, receiving_transfer_rates)];
+                    const transfer_candidate = self.species_tree.post_order_nodes.items[self.rand.random().weightedIndex(f32, self.transfer_rates_to)];
                     const candidate_id = transfer_candidate.id;
                     for (forbidden_transfers.items) |forbidden_id| {
                         if (candidate_id > forbidden_id) {
@@ -291,13 +316,12 @@ pub const FamilySimulator = struct {
         }
     }
 
-    pub fn addHighway(self: *FamilySimulator, source: usize, target: usize, source_multiplier: f32, target_multiplier: f32) !void {
+    pub fn addHighway(self: *FamilySimulator, source: usize, target: usize, probability: f32) !void {
         const map_entry = try self.highways.getOrPutValue(source, std.ArrayList(*Highway).init(self.allocator.*));
         const highway = try self.allocator.create(Highway);
         highway.* = Highway{
             .recipient = target,
-            .transfer_muliplier = source_multiplier,
-            .recipient_muliplier = target_multiplier,
+            .probability = probability,
         };
         try map_entry.value_ptr.append(highway);
     }

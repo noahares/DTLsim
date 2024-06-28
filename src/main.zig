@@ -11,35 +11,35 @@ pub fn main() !void {
         try std.io.getStdErr().writer().print("{}: during parsing and initialization\n", .{err});
         switch (err) {
             cmdline.InitializationError.NoPathProvided => {
-                try std.io.getStdErr().writer().print("Please specify an input species tree with -i\n", .{err});
+                try std.io.getStdErr().writer().print("Please specify an input species tree with -i\n", .{});
                 return;
             },
             cmdline.InitializationError.TransferConstraintNotSupported => {
-                try std.io.getStdErr().writer().print("Currently dated transfer contraints are unsupported!\n", .{err});
+                try std.io.getStdErr().writer().print("Currently dated transfer contraints are unsupported!\n", .{});
                 return;
             },
             cmdline.InitializationError.BranchModifierParseError => {
-                try std.io.getStdErr().writer().print("Please stick to a valid branch modifier definition! See --help or the README\n", .{err});
+                try std.io.getStdErr().writer().print("Please stick to a valid branch modifier definition! See --help or the README\n", .{});
                 return;
             },
             cmdline.InitializationError.HighwayParseError => {
-                try std.io.getStdErr().writer().print("Please stick to a valid highway definition! See --help or the README\n", .{err});
+                try std.io.getStdErr().writer().print("Please stick to a valid highway definition! See --help or the README\n", .{});
                 return;
             },
             cmdline.InitializationError.IOError => {
-                try std.io.getStdErr().writer().print("Could not read input species tree!\n", .{err});
+                try std.io.getStdErr().writer().print("Could not read input species tree!\n", .{});
                 return;
             },
             cmdline.InitializationError.ArgumentParseError => {
-                try std.io.getStdErr().writer().print("Some arguments could not be parsed! See --help or the README\n", .{err});
+                try std.io.getStdErr().writer().print("Some arguments could not be parsed! See --help or the README\n", .{});
                 return;
             },
             cmdline.InitializationError.OutOfMemory => {
-                try std.io.getStdErr().writer().print("This is concerning, if your machine has a reasonable amount of RAM, this should not happen... Please report a bug!\n", .{err});
+                try std.io.getStdErr().writer().print("This is concerning, if your machine has a reasonable amount of RAM, this should not happen... Please report a bug!\n", .{});
                 return;
             },
             cmdline.InitializationError.UnexpectedToken => {
-                try std.io.getStdErr().writer().print("Please check the validity of your input species tree!\n", .{err});
+                try std.io.getStdErr().writer().print("Please check the validity of your input species tree!\n", .{});
                 return;
             },
         }
