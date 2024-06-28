@@ -9,6 +9,40 @@ pub fn main() !void {
     var alloc = arena.allocator();
     const parse_res = cmdline.parse(&alloc) catch |err| {
         try std.io.getStdErr().writer().print("{}: during parsing and initialization\n", .{err});
+        switch (err) {
+            cmdline.InitializationError.NoPathProvided => {
+                try std.io.getStdErr().writer().print("Please specify an input species tree with -i\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.TransferConstraintNotSupported => {
+                try std.io.getStdErr().writer().print("Currently dated transfer contraints are unsupported!\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.BranchModifierParseError => {
+                try std.io.getStdErr().writer().print("Please stick to a valid branch modifier definition! See --help or the README\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.HighwayParseError => {
+                try std.io.getStdErr().writer().print("Please stick to a valid highway definition! See --help or the README\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.IOError => {
+                try std.io.getStdErr().writer().print("Could not read input species tree!\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.ArgumentParseError => {
+                try std.io.getStdErr().writer().print("Some arguments could not be parsed! See --help or the README\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.OutOfMemory => {
+                try std.io.getStdErr().writer().print("This is concerning, if your machine has a reasonable amount of RAM, this should not happen... Please report a bug!\n", .{err});
+                return;
+            },
+            cmdline.InitializationError.UnexpectedToken => {
+                try std.io.getStdErr().writer().print("Please check the validity of your input species tree!\n", .{err});
+                return;
+            },
+        }
         return;
     };
     if (parse_res == null) return;
@@ -37,7 +71,7 @@ pub fn main() !void {
         defer out_file.close();
         var buf_writer = std.io.bufferedWriter(out_file.writer());
         var res = sim.simulate_family() catch |err| {
-            try std.io.getStdErr().writer().print("{}: during gene family simulation\n", .{err});
+            try std.io.getStdErr().writer().print("{}: during gene family simulation\nThis is weird and should not happen, please report a bug!", .{err});
             return;
         };
         // defer gene_tree.deinit();

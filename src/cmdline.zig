@@ -3,7 +3,7 @@ const clap = @import("clap");
 const simulator = @import("simulate_family.zig");
 const newick_parser = @import("newick_parser.zig");
 
-pub const ParseError = error{
+const ParseError = error{
     NoPathProvided,
     ArgumentParseError,
     HighwayParseError,
