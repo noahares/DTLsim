@@ -31,18 +31,21 @@ pub const TreeNode = struct {
         self.parent = null;
     }
 
-    pub fn print(self: *TreeNode, writer: anytype) !void {
+    pub fn print(self: *TreeNode, writer: anytype, print_leaf_id: bool) !void {
         if (self.left_child) |c| {
             try writer.print("(", .{});
-            try c.print(writer);
+            try c.print(writer, print_leaf_id);
         }
         if (self.right_child) |c| {
             try writer.print(",", .{});
-            try c.print(writer);
+            try c.print(writer, print_leaf_id);
             try writer.print(")", .{});
         }
         if (self.name) |name| {
             try writer.print("{s}", .{name});
+            if (print_leaf_id) {
+                try writer.print(".{}", .{self.id});
+            }
         } else if (self.left_child) |_| {
             try writer.print(".{}", .{self.id});
         }

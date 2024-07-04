@@ -90,8 +90,8 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
     for (res.args.highway) |highway| {
         if (!utils.expect_token(highway, ':', 3)) return ParseError.HighwayParseError;
         var it = std.mem.tokenizeScalar(u8, highway, ':');
-        const source = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
-        const target = std.fmt.parseInt(usize, it.next().?, 10) catch return ParseError.HighwayParseError;
+        const source = utils.parse_id_or_name(species_tree, it.next()) catch return ParseError.HighwayParseError;
+        const target = utils.parse_id_or_name(species_tree, it.next()) catch return ParseError.HighwayParseError;
         const probability = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
         sim.addHighway(source, target, probability) catch return ParseError.HighwayParseError;
     }

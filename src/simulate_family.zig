@@ -99,8 +99,8 @@ pub const FamilySimulator = struct {
         for (branch_modifiers) |mod| {
             if (!utils.expect_token(mod, ':', 3)) return SimulatorError.BranchModifierParseError;
             var it = std.mem.tokenizeScalar(u8, mod, ':');
-            const rate_type = it.next().?[0];
-            const branch_id = std.fmt.parseInt(usize, it.next().?, 10) catch return SimulatorError.BranchModifierParseError;
+            const rate_type = utils.parse_rate_type(it.next()) catch return SimulatorError.BranchModifierParseError;
+            const branch_id = utils.parse_id_or_name(species_tree, it.next()) catch return SimulatorError.BranchModifierParseError;
             const value = std.fmt.parseFloat(f32, it.next().?) catch return SimulatorError.BranchModifierParseError;
             switch (rate_type) {
                 'd' => duplication_rates[branch_id] = value,

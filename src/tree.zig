@@ -33,9 +33,9 @@ pub const Tree = struct {
         return self._next_node_id;
     }
 
-    pub fn print(self: *Tree, writer: anytype) !void {
+    pub fn print(self: *Tree, writer: anytype, print_leaf_id: bool) !void {
         if (self.root) |node| {
-            try node.print(writer);
+            try node.print(writer, print_leaf_id);
             try writer.print(";\n", .{});
         } else {
             try writer.print("();\n", .{});
@@ -70,5 +70,16 @@ pub const Tree = struct {
         } else {
             self.root = null;
         }
+    }
+
+    pub fn node_id_from_name(self: *Tree, query_name: []const u8) ?usize {
+        for (self.post_order_nodes.items, 0..) |node, i| {
+            if (node.name) |name| {
+                if (std.mem.eql(u8, name, query_name)) {
+                    return i;
+                }
+            }
+        }
+        return null;
     }
 };

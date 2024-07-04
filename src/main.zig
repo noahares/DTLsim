@@ -54,6 +54,19 @@ pub fn main() !void {
         return;
     };
     defer dir.close();
+
+    const species_tree_file = dir.createFile("species_tree.nwk", .{ .exclusive = !config.redo });
+    if (species_tree_file) |file| {
+        defer file.close();
+        var species_tree_writer = std.io.bufferedWriter(file.writer());
+        try sim.species_tree.print(&species_tree_writer.writer(), true);
+        try species_tree_writer.flush();
+    } else |err| {
+        const out = std.io.getStdErr().writer();
+        try out.print("{}: could not create <prefix>/species_tree.nwk\n If it already exists, make sure to run the program with --redo\nPrinting species tree here: \n", .{err});
+        try sim.species_tree.print(&out, true);
+    }
+
     const event_file = dir.createFile("event_counts.txt", .{ .exclusive = !config.redo }) catch |err| {
         try std.io.getStdErr().writer().print("{}: could not create <prefix>/event_counts.txt\n If it already exists, make sure to run the program with --redo\n", .{err});
         return;
@@ -76,7 +89,7 @@ pub fn main() !void {
         };
         // defer gene_tree.deinit();
         try res.event_counts.print(&event_writer.writer(), i);
-        try res.gene_tree.print(&buf_writer.writer());
+        try res.gene_tree.print(&buf_writer.writer(), false);
         try buf_writer.flush();
     }
     try event_writer.flush();
