@@ -34,7 +34,7 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
         \\-b, --branch-rate-modifier <MOD>...   Individual values for DTL rates on specific species tree branches
         \\                                      (format <type>:<branch_id>:<value> where type is one of {d, t, r, l, o})
         \\-h, --highway <HIGHWAY>...            Defines a transfer highway between two species tree branches
-        \\                                      (format <source_id>:<target_id>:<source_multiplier>:<target_multiplier>)
+        \\                                      (format <source_id>:<target_id>:<probability>)
         \\-c, --transfer-constraint <CONSTR>    Transfer constraint, either parent, dated or none (default: parent)
         \\-x, --post-transfer-loss <f32>        Factor for changing the loss rate after receiving a gene via transfer (default: 1.0)
     );
