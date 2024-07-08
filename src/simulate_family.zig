@@ -248,8 +248,8 @@ pub const FamilySimulator = struct {
                 gene_tree.restore_bifurcation(parent_gene_node);
             },
             .speciation => {
+                self.event_counts.speciation += 1;
                 if (species_node.left_child != null) {
-                    self.event_counts.speciation += 1;
                     // parent_gene_node.name = "S";
                     // std.debug.print("Speciation at node {}\n", .{node_id});
                     const left_child = try gene_tree.newNode(null, null, parent_gene_node);
