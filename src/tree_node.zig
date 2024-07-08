@@ -58,7 +58,7 @@ pub const TreeNode = struct {
         if (self.name) |name| {
             return std.fmt.bufPrint(buf, "{s}", .{name});
         } else {
-            return std.fmt.bufPrint(buf, "{}", .{self.id});
+            return std.fmt.bufPrint(buf, ".{}", .{self.id});
         }
     }
 };
