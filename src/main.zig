@@ -67,6 +67,19 @@ pub fn main() !void {
         try sim.species_tree.print(&out, true);
     }
 
+    const parameter_file = dir.createFile("parameters.txt", .{ .exclusive = !config.redo });
+    if (parameter_file) |file| {
+        defer file.close();
+        var parameter_writer = std.io.bufferedWriter(file.writer());
+        for (std.os.argv) |arg| {
+            try parameter_writer.writer().print("{s} ", .{arg});
+        }
+        try parameter_writer.flush();
+    } else |err| {
+        const out = std.io.getStdErr().writer();
+        try out.print("{}: could not create <prefix>/parameters.txt\n If it already exists, make sure to run the program with --redo\n", .{err});
+    }
+
     const event_file = dir.createFile("event_counts.txt", .{ .exclusive = !config.redo }) catch |err| {
         try std.io.getStdErr().writer().print("{}: could not create <prefix>/event_counts.txt\n If it already exists, make sure to run the program with --redo\n", .{err});
         return;
