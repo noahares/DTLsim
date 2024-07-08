@@ -39,11 +39,11 @@ pub fn parseNewickString(allocator: *std.mem.Allocator, input: []const u8) Newic
             },
             ')' => {
                 cursor += 1;
-                current_node = current_node.parent.?;
+                current_node = current_node.parent orelse return NewickParseError.UnexpectedToken;
             },
             ',' => {
                 cursor += 1;
-                current_node = current_node.parent.?;
+                current_node = current_node.parent orelse return NewickParseError.UnexpectedToken;
                 const child = try tree.newNode(null, null, current_node);
                 current_node.right_child = child;
                 current_node = child;

@@ -9,6 +9,7 @@ const ParseError = error{
     ArgumentParseError,
     HighwayParseError,
     IOError,
+    FileEmpty,
 };
 pub const InitializationError = ParseError || newick_parser.NewickParseError || simulator.SimulatorError;
 
@@ -72,7 +73,12 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
             return ParseError.NoPathProvided;
         }
     };
-    const newick_string = (read_first_line_from_file(allocator, species_tree_path) catch return InitializationError.IOError).?;
+    const newick_string = read_first_line_from_file(allocator, species_tree_path) catch |err| {
+        switch (err) {
+            ParseError.FileEmpty => return ParseError.FileEmpty,
+            else => return InitializationError.IOError,
+        }
+    };
     const species_tree = try newick_parser.parseNewickString(allocator, newick_string);
     const num_gene_families = res.args.@"num-gene-families" orelse 100;
     const sim = try simulator.FamilySimulator.init(
@@ -92,7 +98,7 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
         var it = std.mem.tokenizeScalar(u8, highway, ':');
         const source = utils.parse_id_or_name(species_tree, it.next()) catch return ParseError.HighwayParseError;
         const target = utils.parse_id_or_name(species_tree, it.next()) catch return ParseError.HighwayParseError;
-        const probability = std.fmt.parseFloat(f32, it.next().?) catch return ParseError.HighwayParseError;
+        const probability = std.fmt.parseFloat(f32, it.next() orelse return ParseError.HighwayParseError) catch return ParseError.HighwayParseError;
         sim.addHighway(source, target, probability) catch return ParseError.HighwayParseError;
     }
     return .{
@@ -106,9 +112,10 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
     };
 }
 
-fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) !?[]u8 {
+fn read_first_line_from_file(allocator: *std.mem.Allocator, path: []const u8) ![]u8 {
     var file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
     const file_size = (try file.stat()).size + 1;
-    return file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', file_size);
+    const res = try file.reader().readUntilDelimiterOrEofAlloc(allocator.*, '\n', file_size);
+    return (res orelse ParseError.FileEmpty);
 }

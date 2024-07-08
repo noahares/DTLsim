@@ -42,6 +42,10 @@ pub fn main() !void {
                 try std.io.getStdErr().writer().print("Please check the validity of your input species tree!\n", .{});
                 return;
             },
+            cmdline.InitializationError.FileEmpty => {
+                try std.io.getStdErr().writer().print("Input species tree file in empty!\n", .{});
+                return;
+            },
         }
         return;
     };
