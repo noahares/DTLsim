@@ -3,6 +3,8 @@ A command line utility for generating gene trees under the DTL model with "highw
 
 **This tool is still in development and with a rather specific use-case in mind. The simulation of the model works well as far as I can tell, but you still ought to be cautions.**
 
+It is written in zig v0.13. Because zig is still in rapid devolpment, I recommend using a toolchain version manager like [mise](https://mise.jdx.dev/) to make life easier in case breaking changes happen.
+
 For more on the DTL model see for example [this paper about GeneRax](https://academic.oup.com/mbe/article/37/9/2763/5851843) [^generax]
 
 Highways are pairs of species that have a vastly higher rate of HGTs happening between them.
