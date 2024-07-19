@@ -54,6 +54,7 @@ pub const Tree = struct {
                     }
                 } else {
                     self.root = parent.right_child;
+                    self.root.?.parent = null;
                 }
             } else {
                 if (parent.parent) |grandparent| {
@@ -65,6 +66,7 @@ pub const Tree = struct {
                     }
                 } else {
                     self.root = parent.left_child;
+                    self.root.?.parent = null;
                 }
             }
         } else {
