@@ -246,6 +246,18 @@ pub const FamilySimulator = struct {
                 self.event_counts.loss += 1;
                 // parent_gene_node.name = "L";
                 gene_tree.restore_bifurcation(parent_gene_node);
+                if (parent_gene_node.parent) |grandparent| {
+                    if (grandparent.name) |name| {
+                        switch (name[0]) {
+                            'D' => self.event_counts.duplication -= 1,
+                            'T' => self.event_counts.transfer -= 1,
+                            'H' => self.event_counts.highway_transfer -= 1,
+                            else => self.event_counts.speciation -= 1,
+                        }
+                    } else {
+                        self.event_counts.speciation -= 1;
+                    }
+                }
             },
             .speciation => {
                 self.event_counts.speciation += 1;
