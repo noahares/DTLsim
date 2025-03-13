@@ -14,12 +14,13 @@
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
-    .dependencies = .{
-        .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.9.0.tar.gz",
-            .hash = "12207ee987ce045596cb992cfb15b0d6d9456e50d4721c3061c69dabc2962053644d",
-        },
-    },
+    .dependencies = .{ .clap = .{
+        .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.9.0.tar.gz",
+        .hash = "12207ee987ce045596cb992cfb15b0d6d9456e50d4721c3061c69dabc2962053644d",
+    }, .zprob = .{
+        .url = "https://github.com/pblischak/zprob/archive/refs/tags/v0.2.0.tar.gz",
+        .hash = "12207098df1dde3eb8b55c8d06842c65b9c5de9e5dec9166e7c08b0e6881a1d2f409",
+    } },
     .paths = .{
         // This makes *all* files, recursively, included in this package. It is generally
         // better to explicitly list the files and directories instead, to insure that

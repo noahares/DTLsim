@@ -15,6 +15,8 @@ pub const InitializationError = ParseError || newick_parser.NewickParseError || 
 
 pub const Config = struct {
     num_gene_families: usize,
+    num_family_samples: usize,
+    lambda: f32,
     post_transfer_loss_gamma: struct { shape: f32, scale: f32 },
     out_prefix: []const u8,
     redo: bool,
@@ -28,6 +30,8 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
         \\--redo                                Override existing output files
         \\-s, --seed <u64>                      RNG seed (default: 42)
         \\-n, --num-gene-families <usize>       Number of gene families to generate (default: 100)
+        \\--num-family-samples <usize>          Number of trees per gene families to generate (default: 1)
+        \\--lambda <f32>                        Lambda parameter for the number of NNI moves Poisson distribution (default: 0.5)
         \\-d, --duplication-rate <f32>          Duplication rate (default: 0.1)
         \\-t, --transfer-rate <f32>             Transfer rate (default: 0.1)
         \\-l, --loss-rate <f32>                 Loss rate (default: 0.1)
@@ -104,6 +108,8 @@ pub fn parse(allocator: *std.mem.Allocator) InitializationError!?struct { config
     return .{
         .config = Config{
             .num_gene_families = num_gene_families,
+            .num_family_samples = res.args.@"num-family-samples" orelse 1,
+            .lambda = res.args.lambda orelse 0.5,
             .post_transfer_loss_gamma = .{ .shape = 1.0, .scale = 1.0 },
             .out_prefix = res.args.prefix orelse ".",
             .redo = res.args.redo != 0,

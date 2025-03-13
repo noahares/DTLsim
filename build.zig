@@ -41,11 +41,40 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.root_module.addImport("clap", clap.module("clap"));
+    const zprob = b.dependency("zprob", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("zprob", zprob.module("zprob"));
+
+    exe.linkLibC();
+    exe.linkLibCpp();
+    exe.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/usr/lib/libstdc++.so" } });
+    exe.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/bin/libcorax.a" } });
+    exe.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/src" } });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
     b.installArtifact(exe);
+
+    const exe_check = b.addExecutable(.{
+        .name = "dtlh_simulator",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_check.root_module.addImport("clap", clap.module("clap"));
+    exe_check.root_module.addImport("zprob", zprob.module("zprob"));
+
+    exe_check.linkLibC();
+    exe_check.linkLibCpp();
+    exe_check.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/usr/lib/libstdc++.so" } });
+    exe_check.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/bin/libcorax.a" } });
+    exe_check.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/src" } });
+
+    const check = b.step("check", "Check if app compiles");
+    check.dependOn(&exe_check.step);
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish

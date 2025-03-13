@@ -2,6 +2,11 @@ const std = @import("std");
 const newick_parser = @import("newick_parser.zig");
 const simulator = @import("simulate_family.zig");
 const cmdline = @import("cmdline.zig");
+const nni = @import("nni.zig");
+
+const coraxlib = @cImport({
+    @cInclude("corax/corax.h");
+});
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -93,9 +98,9 @@ pub fn main() !void {
     var event_writer = std.io.bufferedWriter(event_file.writer());
     const filename_buf = try alloc.alloc(u8, std.fs.MAX_PATH_BYTES);
     for (0..config.num_gene_families) |i| {
-        const out_file_name = try std.fmt.bufPrint(filename_buf, "family{}.nwk", .{i});
+        const out_file_name = try std.fmt.bufPrint(filename_buf, "family{}.base.nwk", .{i});
         const out_file = dir.createFile(out_file_name, .{ .exclusive = !config.redo }) catch |err| {
-            try std.io.getStdErr().writer().print("{}: could not create <prefix>/family{}.nwk\n If it already exists, make sure to run the program with --redo\n", .{ err, i });
+            try std.io.getStdErr().writer().print("{}: could not create <prefix>/family{}.base.nwk\n If it already exists, make sure to run the program with --redo\n", .{ err, i });
             return;
         };
         defer out_file.close();
@@ -108,6 +113,22 @@ pub fn main() !void {
         try res.event_counts.print(&event_writer.writer(), i);
         try res.gene_tree.print(&buf_writer.writer(), false);
         try buf_writer.flush();
+        if (@as(f32, @floatFromInt(res.gene_tree.numNodes())) >= 10) {
+            const nni_filename_buf = try alloc.alloc(u8, std.fs.MAX_PATH_BYTES);
+            const nni_out_file_name = try std.fmt.bufPrint(nni_filename_buf, "family{}.nwk", .{i});
+            const nni_out_file = dir.createFile(nni_out_file_name, .{ .exclusive = !config.redo }) catch |err| {
+                try std.io.getStdErr().writer().print("{}: could not create <prefix>/family{}.nwk\n If it already exists, make sure to run the program with --redo\n", .{ err, i });
+                return;
+            };
+            defer nni_out_file.close();
+            var nni_buf_writer = std.io.bufferedWriter(nni_out_file.writer());
+            const paths: [2][]const u8 = .{ config.out_prefix, out_file_name };
+            const out_path = try std.fs.path.join(alloc, &paths);
+            const corax_tree = coraxlib.corax_utree_parse_newick_unroot(out_path.ptr);
+            defer coraxlib.corax_utree_destroy(corax_tree, null);
+            try nni.generate_nni_perturbed_trees(corax_tree, config.num_family_samples, config.lambda, &nni_buf_writer.writer());
+            try nni_buf_writer.flush();
+        }
     }
     try event_writer.flush();
 }
