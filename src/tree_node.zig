@@ -49,9 +49,7 @@ pub const TreeNode = struct {
         } else if (self.left_child) |_| {
             try writer.print(".{}", .{self.id});
         }
-        if (self.branch_length) |b| {
-            try writer.print(":{d:.2}", .{b});
-        }
+        try writer.print(":{d:.2}", .{self.branch_length orelse 1.0});
     }
 
     pub fn name_or_id(self: *TreeNode, buf: []u8) std.fmt.BufPrintError![]u8 {

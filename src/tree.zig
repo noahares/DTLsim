@@ -6,10 +6,11 @@ pub const Tree = struct {
     allocator: *const std.mem.Allocator,
     post_order_nodes: std.ArrayList(*TreeNode),
     _next_node_id: usize,
+    _num_removed_nodes: usize,
 
     pub fn init(allocator: *const std.mem.Allocator) std.mem.Allocator.Error!*Tree {
         const tree = try allocator.create(Tree);
-        tree.* = Tree{ .root = null, .allocator = allocator, .post_order_nodes = std.ArrayList(*TreeNode).init(allocator.*), ._next_node_id = 0 };
+        tree.* = Tree{ .root = null, .allocator = allocator, .post_order_nodes = std.ArrayList(*TreeNode).init(allocator.*), ._next_node_id = 0, ._num_removed_nodes = 0 };
         const root = try tree.newNode(null, null, null);
         tree.root = root;
         return tree;
@@ -19,6 +20,7 @@ pub const Tree = struct {
         self.root = null;
         self.post_order_nodes.clearAndFree();
         self._next_node_id = 0;
+        self._num_removed_nodes = 0;
     }
 
     pub fn newNode(self: *Tree, name: ?[]const u8, branch_length: ?f32, parent: ?*TreeNode) std.mem.Allocator.Error!*TreeNode {
@@ -30,7 +32,7 @@ pub const Tree = struct {
     }
 
     pub fn numNodes(self: *Tree) usize {
-        return self._next_node_id;
+        return self._next_node_id - self._num_removed_nodes;
     }
 
     pub fn print(self: *Tree, writer: anytype, print_leaf_id: bool) !void {
@@ -69,9 +71,11 @@ pub const Tree = struct {
                     self.root.?.parent = null;
                 }
             }
+            self._num_removed_nodes += 1;
         } else {
             self.root = null;
         }
+        self._num_removed_nodes += 1;
     }
 
     pub fn node_id_from_name(self: *Tree, query_name: []const u8) ?usize {
