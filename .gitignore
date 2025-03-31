@@ -1,2 +1,6 @@
-zig-out/
-zig-cache/
+/*
+!.gitignore
+!README.md
+!build.*
+!src/
+!scripts/
