@@ -1,0 +1,3 @@
+[tools]
+zig = '0.13.0'
+python = {version='3.13', virtualenv='venv'}
