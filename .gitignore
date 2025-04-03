@@ -3,5 +3,7 @@
 !README.md
 !build.*
 !src/
+!lib/
 !scripts/
 !requirements.txt
+!.mise.toml

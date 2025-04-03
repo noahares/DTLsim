@@ -50,8 +50,25 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
     exe.linkLibCpp();
     exe.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/usr/lib/libstdc++.so" } });
-    exe.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/bin/libcorax.a" } });
-    exe.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/src" } });
+
+    // CMake Build Step
+    const corax_build = b.addSystemCommand(&[_][]const u8{ "cmake", "-S", "lib/coraxlib", "-B", "zig-out/coraxlib-build" });
+    // corax_build.step.dependOn(b.getInstallStep());
+
+    const corax_make = b.addSystemCommand(&[_][]const u8{ "make", "-C", "zig-out/coraxlib-build" });
+    corax_make.step.dependOn(&corax_build.step);
+
+    // Add dependency step
+    exe.step.dependOn(&corax_make.step);
+
+    // Link the generated static library
+    exe.addObjectFile(.{
+        .src_path = .{ .owner = b, .sub_path = "lib/coraxlib/bin/libcorax.a" },
+    });
+    // Include path for headers
+    exe.addIncludePath(.{
+        .src_path = .{ .owner = b, .sub_path = "lib/coraxlib/src" },
+    });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -69,9 +86,13 @@ pub fn build(b: *std.Build) void {
 
     exe_check.linkLibC();
     exe_check.linkLibCpp();
-    exe_check.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/usr/lib/libstdc++.so" } });
-    exe_check.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/bin/libcorax.a" } });
-    exe_check.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "/home/ares/repos/phd/projects/misc/coraxlib/src" } });
+    exe.addObjectFile(.{ .src_path = .{ .owner = b, .sub_path = "/usr/lib/libstdc++.so" } });
+    exe_check.addObjectFile(.{
+        .src_path = .{ .owner = b, .sub_path = "lib/coraxlib/bin/libcorax.a" },
+    });
+    exe_check.addIncludePath(.{
+        .src_path = .{ .owner = b, .sub_path = "lib/coraxlib/src" },
+    });
 
     const check = b.step("check", "Check if app compiles");
     check.dependOn(&exe_check.step);
